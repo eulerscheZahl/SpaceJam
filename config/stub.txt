@@ -1,0 +1,6 @@
+read width:int height:int
+loop height read line:string(50)
+gameloop
+read entityCount:int
+loop entityCount read id:int x:int y:int direction:word(5)
+write 0 R

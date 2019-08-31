@@ -1,37 +1,53 @@
 package com.codingame.game;
-import java.util.List;
 
+import carmaze.Board;
 import com.codingame.gameengine.core.AbstractPlayer.TimeoutException;
 import com.codingame.gameengine.core.AbstractReferee;
-import com.codingame.gameengine.core.MultiplayerGameManager;
+import com.codingame.gameengine.core.SoloGameManager;
 import com.codingame.gameengine.module.entities.GraphicEntityModule;
+import com.codingame.gameengine.module.tooltip.TooltipModule;
 import com.google.inject.Inject;
 
 public class Referee extends AbstractReferee {
-    // Uncomment the line below and comment the line under it to create a Solo Game
-    // @Inject private SoloGameManager<Player> gameManager;
-    @Inject private MultiplayerGameManager<Player> gameManager;
-    @Inject private GraphicEntityModule graphicEntityModule;
+    @Inject
+    private SoloGameManager<Player> gameManager;
+    @Inject
+    private GraphicEntityModule graphicEntityModule;
+    @Inject
+    TooltipModule tooltips;
+    private Board board;
+
+    public static SoloGameManager<Player> manager;
 
     @Override
     public void init() {
-        // Initialize your game here.
+        manager = gameManager;
+        String input = gameManager.getTestCaseInput().get(0);
+        board = new Board(input, graphicEntityModule, tooltips);
     }
 
     @Override
     public void gameTurn(int turn) {
-        for (Player player : gameManager.getActivePlayers()) {
-            player.sendInputLine("input");
-            player.execute();
-        }
+        Player player = gameManager.getPlayer();
+        for (String line : board.getInput(turn == 1)) player.sendInputLine(line);
+        player.execute();
 
-        for (Player player : gameManager.getActivePlayers()) {
-            try {
-                List<String> outputs = player.getOutputs();
-                // Check validity of the player output and compute the new game state
-            } catch (TimeoutException e) {
-                player.deactivate(String.format("$%d timeout!", player.getIndex()));
-            }
-        }        
+        try {
+            String output = player.getOutputs().get(0);
+            String[] parts = output.split(" ");
+            if (parts.length < 2) throw new Exception("You have to print an ID and direction");
+            int id = Integer.parseInt(parts[0]);
+            String direction = parts[1];
+            if (!direction.equals("R") && !direction.equals("L") && !direction.equals("U") && !direction.equals("D"))
+                throw new Exception("invalid direction: " + direction);
+            board.applyAction(id, direction);
+            if (board.lose()) gameManager.loseGame("You lost the car");
+            if (board.win()) gameManager.winGame("You guided the car to the target");
+
+        } catch (TimeoutException e) {
+            gameManager.loseGame("timeout");
+        } catch (Exception e) {
+            gameManager.loseGame(e.getMessage());
+        }
     }
 }
